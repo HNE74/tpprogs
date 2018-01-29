@@ -12,6 +12,7 @@ const
 var
      ComPort: array [1..4] of Word absolute $0040:$0000;
      OutputLetter: Char;
+     InputLetter : Char;
      KeyLetter : Char;
      InputFile : File;
      WasRead : Integer;
@@ -33,20 +34,30 @@ end;
 procedure SendFile;
 var cnt : Integer;
 var total : Integer;
+var response : Boolean;
 begin
      write('Transmitting file data');
      cnt := 0;
      total := 0;
      repeat
            BlockRead(InputFile, OutputLetter, 1, WasRead);
-           delay(1000);
            Port[ComPort[1] + THR] := Ord(OutputLetter);
-           if KeyPressed then begin;
-              KeyLetter := ReadKey;
-           end;
+
+           response := False;
+           repeat
+               if KeyPressed then begin;
+                   KeyLetter := ReadKey;
+               end;
+               if(Port[ComPort[1] + LSR] and $01) > 0 then begin
+                   InputLetter := Chr(Port[ComPort[1] + RBR]);
+                   if InputLetter = OutputLetter then begin
+                       response := True;
+                   end;
+               end;
+           until (response = True) or (KeyLetter = EscapeKey);
+
            inc(cnt);
            inc(total);
-           writeln(total);
            if cnt = 100 then begin;
               cnt := 0;
               write('.');
@@ -54,6 +65,8 @@ begin
      until (WasRead = 0) or (KeyLetter = EscapeKey);
      Close(InputFile);
      writeln;
+
+
      write(total);
      writeln(' characters sent.');
 end;
@@ -61,7 +74,7 @@ end;
 begin
      writeln('Serial Port File Sender. Press "ESC" to quit.');
      InitCom;
-     OpenInput('bintest.exe');
+     OpenInput('msk.zip');
      SendFile;
      writeln;
      writeln('End of transmission.');
